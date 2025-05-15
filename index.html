@@ -1,76 +1,192 @@
 <!DOCTYPE html>
 <html lang="zh">
 <head>
-  <meta charset="UTF-8" />
-  <title>翻译错题集</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta charset="UTF-8">
+  <title>翻译错题集 | Translation Error Archive</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <style>
-    body { font-family: sans-serif; background: #f7f9fb; padding: 30px; margin: 0; }
-    h1 { text-align: center; color: #333; }
-    .search-box { text-align: center; margin: 20px 0; }
-    input[type="text"] {
-      padding: 10px; width: 80%; max-width: 500px;
-      font-size: 16px; border: 1px solid #ccc; border-radius: 6px;
+    body {
+      margin: 0;
+      padding: 0 16px;
+      font-family: "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+      background: #f2f4f8;
+      color: #333;
     }
-    .entry { background: white; border-radius: 10px; padding: 20px; margin: 20px auto;
-      max-width: 800px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
-    .summary { font-weight: bold; cursor: pointer; color: #1565c0; }
-    .details { display: none; margin-top: 15px; }
-    .label { font-weight: bold; color: #444; }
-    .tag { display: inline-block; background: #eee; border-radius: 4px;
-      padding: 2px 8px; font-size: 13px; margin: 3px 5px 3px 0; }
-    .tag-direction { background: #d0eaff; color: #0d47a1; }
-    .tag-type { background: #ffe0e0; color: #b71c1c; }
-    .tag-style { background: #ede7f6; color: #4527a0; }
+    h1 {
+      text-align: center;
+      font-size: 24px;
+      margin: 30px 0 20px;
+      color: #222;
+    }
+    .search-filter {
+      max-width: 800px;
+      margin: 0 auto 20px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      justify-content: center;
+    }
+    .search-filter input,
+    .search-filter select {
+      padding: 10px;
+      border: 1px solid #ccc;
+      border-radius: 6px;
+      font-size: 14px;
+    }
+    .entry {
+      background: white;
+      border-radius: 12px;
+      padding: 20px;
+      margin: 20px auto;
+      max-width: 800px;
+      box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+      transition: all 0.2s ease-in-out;
+    }
+    .entry:hover {
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.1);
+    }
+    .summary {
+      font-weight: bold;
+      font-size: 16px;
+      cursor: pointer;
+      color: #1565c0;
+      margin-bottom: 10px;
+    }
+    .details {
+      display: none;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    .label {
+      font-weight: bold;
+      color: #444;
+    }
+    .tag {
+      display: inline-block;
+      background: #e0e0e0;
+      border-radius: 4px;
+      padding: 2px 8px;
+      font-size: 12px;
+      margin: 2px 6px 2px 0;
+    }
+    .controls {
+      text-align: center;
+      margin: 20px 0;
+    }
+    button {
+      padding: 6px 12px;
+      margin: 4px;
+      border: none;
+      background-color: #1565c0;
+      color: white;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+    button:hover {
+      background-color: #0d47a1;
+    }
     .chart-section {
-      max-width: 800px; margin: 40px auto; background: white; padding: 20px;
-      border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
+      max-width: 800px;
+      margin: 40px auto;
+      background: white;
+      padding: 20px;
+      border-radius: 10px;
+      box-shadow: 0 2px 10px rgba(0, 0, 0, 0.05);
     }
   </style>
 </head>
 <body>
   <h1>翻译错题集</h1>
 
-  <div class="search-box">
-    <input type="text" id="searchBox" placeholder="搜索原文、关键词、错误类型..." />
+  <div class="search-filter">
+    <input type="text" id="searchBox" placeholder="搜索原文 / 错因 / 表达关键词..." />
+    <select id="directionFilter">
+      <option value="">全部方向</option>
+      <option value="Chinese to English">Chinese to English</option>
+      <option value="English to Chinese">English to Chinese</option>
+    </select>
+    <select id="typeFilter">
+      <option value="">全部错误类型</option>
+    </select>
+    <select id="genreFilter">
+      <option value="">全部文本类型</option>
+    </select>
   </div>
 
   <div id="randomEntry" class="entry">每日一句加载中...</div>
-
   <div id="content">加载中...</div>
-
-  <div class="chart-section">
-    <h2 style="text-align:center;">错误类型统计</h2>
+  <div class="controls">
+    <button onclick="prevPage()">上一页</button>
+    <span id="pageInfo"></span>
+    <button onclick="nextPage()">下一页</button>
+    <button onclick="exportCSV()">导出当前结果</button>
+  </div>  <div class="chart-section">
+    <h2 style="text-align:center;">错误类型统计图表</h2>
     <canvas id="errorChart" height="200"></canvas>
   </div>
 
   <script>
     let allData = [];
+    let currentPage = 1;
+    const perPage = 5;
 
     fetch('errorlist.json')
       .then(res => res.json())
       .then(data => {
         allData = data;
-        render(data);
+        initFilters(data);
+        render();
         showRandomEntry();
         drawChart(data);
       });
 
-    function render(data) {
+    function initFilters(data) {
+      const types = new Set();
+      const genres = new Set();
+      data.forEach(entry => {
+        if (entry["错误类型"]) entry["错误类型"].split(',').forEach(t => types.add(t.trim()));
+        if (entry["文本类型"]) genres.add(entry["文本类型"].trim());
+      });
+      types.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = t;
+        document.getElementById('typeFilter').appendChild(opt);
+      });
+      genres.forEach(t => {
+        const opt = document.createElement('option');
+        opt.value = opt.textContent = t;
+        document.getElementById('genreFilter').appendChild(opt);
+      });
+    }
+
+    function render() {
       const container = document.getElementById('content');
       container.innerHTML = '';
-      data.forEach((entry, i) => {
+      const keyword = document.getElementById('searchBox').value.toLowerCase();
+      const dir = document.getElementById('directionFilter').value;
+      const type = document.getElementById('typeFilter').value;
+      const genre = document.getElementById('genreFilter').value;
+
+      const filtered = allData.filter(entry =>
+        (!dir || entry["翻译方向"] === dir) &&
+        (!type || (entry["错误类型"] || '').includes(type)) &&
+        (!genre || entry["文本类型"] === genre) &&
+        Object.values(entry).some(v => v && v.toLowerCase().includes(keyword))
+      );
+
+      const start = (currentPage - 1) * perPage;
+      const pageData = filtered.slice(start, start + perPage);
+
+      pageData.forEach((entry, i) => {
         const div = document.createElement('div');
         div.className = 'entry';
+        const index = start + i;
         div.innerHTML = `
-          <div class="summary" onclick="toggle(${i})">
-            ${wrapTags(entry["翻译方向"], 'tag-direction')} 
-            ${wrapTags(entry["错误类型"], 'tag-type')}
-            ${wrapTags(entry["文本类型"], 'tag-style')}
+          <div class="summary" onclick="toggle(${index})">
             原文：${safe(entry["原文"]).slice(0, 40)}...
           </div>
-          <div class="details" id="d${i}">
+          <div class="details" id="d${index}">
             ${renderField("原文", entry["原文"])}
             ${renderField("我的翻译", entry["我的翻译"])}
             ${renderField("修改", entry["修改"])}
@@ -78,27 +194,15 @@
             ${renderField("改进说明", entry["改进说明"])}
             ${renderField("积累表达", entry["积累表达"])}
             ${renderField("关键词", entry["关键词"])}
-            ${wrapTags("错误类型", entry["错误类型"], 'tag-type')}
-            ${wrapTags("翻译方向", entry["翻译方向"], 'tag-direction')}
+            ${renderField("错误类型", entry["错误类型"])}
+            ${renderField("翻译方向", entry["翻译方向"])}
             ${renderField("文本类型", entry["文本类型"])}
             ${renderField("日期", entry["日期"])}
-          </div>
-        `;
+          </div>`;
         container.appendChild(div);
       });
-    }
 
-    function renderField(label, value) {
-      if (!value) return '';
-      return `<div><span class="label">${label}：</span>${safe(value)}</div>`;
-    }
-
-    function wrapTags(label, text, className) {
-      if (!text) return '';
-      const tags = text.split(',').map(t =>
-        `<span class="tag ${className}">${safe(t.trim())}</span>`
-      ).join('');
-      return `<div><span class="label">${label}：</span>${tags}</div>`;
+      document.getElementById('pageInfo').textContent = `第 ${currentPage} 页 / 共 ${Math.ceil(filtered.length / perPage)} 页`;
     }
 
     function toggle(index) {
@@ -110,7 +214,7 @@
       if (!allData.length) return;
       const r = allData[Math.floor(Math.random() * allData.length)];
       document.getElementById('randomEntry').innerHTML = `
-        <div class="summary">每日一句 · ${wrapTags(r["翻译方向"], 'tag-direction')} 原文预览：${safe(r["原文"]).slice(0, 40)}...</div>
+        <div class="summary">每日一句 · ${safe(r["原文"]).slice(0, 40)}...</div>
         <div class="details" style="display:block;">
           ${renderField("原文", r["原文"])}
           ${renderField("我的翻译", r["我的翻译"])}
@@ -121,14 +225,28 @@
         </div>`;
     }
 
-    document.getElementById('searchBox').addEventListener('input', function() {
-      const kw = this.value.toLowerCase();
-      const filtered = allData.filter(entry =>
-        Object.values(entry).some(val =>
-          val && val.toLowerCase().includes(kw)
-        )
-      );
-      render(filtered);
+    function prevPage() {
+      if (currentPage > 1) {
+        currentPage--;
+        render();
+      }
+    }
+
+    function nextPage() {
+      currentPage++;
+      render();
+    }
+
+    document.getElementById('searchBox').addEventListener('input', () => {
+      currentPage = 1;
+      render();
+    });
+
+    ["directionFilter", "typeFilter", "genreFilter"].forEach(id => {
+      document.getElementById(id).addEventListener('change', () => {
+        currentPage = 1;
+        render();
+      });
     });
 
     function drawChart(data) {
@@ -155,9 +273,48 @@
         options: {
           responsive: true,
           plugins: { legend: { display: false } },
-          scales: { y: { beginAtZero: true, ticks: { precision: 0 } } }
+          scales: {
+            y: { beginAtZero: true, ticks: { precision: 0 } }
+          }
         }
       });
+    }
+
+    function exportCSV() {
+      const rows = [
+        ["原文","我的翻译","修改","参考译文","改进说明","积累表达","关键词","错误类型","翻译方向","文本类型","日期"]
+      ];
+      const keyword = document.getElementById('searchBox').value.toLowerCase();
+      const dir = document.getElementById('directionFilter').value;
+      const type = document.getElementById('typeFilter').value;
+      const genre = document.getElementById('genreFilter').value;
+
+      const filtered = allData.filter(entry =>
+        (!dir || entry["翻译方向"] === dir) &&
+        (!type || (entry["错误类型"] || '').includes(type)) &&
+        (!genre || entry["文本类型"] === genre) &&
+        Object.values(entry).some(v => v && v.toLowerCase().includes(keyword))
+      );
+
+      filtered.forEach(e => {
+        rows.push([
+          e["原文"] || "", e["我的翻译"] || "", e["修改"] || "", e["参考译文"] || "",
+          e["改进说明"] || "", e["积累表达"] || "", e["关键词"] || "",
+          e["错误类型"] || "", e["翻译方向"] || "", e["文本类型"] || "", e["日期"] || ""
+        ]);
+      });
+
+      const csv = rows.map(r => r.map(cell => `"${cell.replace(/"/g, '""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = 'translation-errors.csv';
+      link.click();
+    }
+
+    function renderField(label, value) {
+      if (!value) return '';
+      return `<div><span class="label">${label}：</span>${safe(value)}</div>`;
     }
 
     function safe(text) {
