@@ -14,12 +14,15 @@
       font-size: 16px; border: 1px solid #ccc; border-radius: 6px;
     }
     .entry { background: white; border-radius: 10px; padding: 20px; margin: 20px auto;
-      max-width: 700px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+      max-width: 800px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
     .summary { font-weight: bold; cursor: pointer; color: #1565c0; }
     .details { display: none; margin-top: 15px; }
     .label { font-weight: bold; color: #444; }
     .tag { display: inline-block; background: #eee; border-radius: 4px;
       padding: 2px 8px; font-size: 13px; margin: 3px 5px 3px 0; }
+    .tag-direction { background: #d0eaff; color: #0d47a1; }
+    .tag-type { background: #ffe0e0; color: #b71c1c; }
+    .tag-style { background: #ede7f6; color: #4527a0; }
     .chart-section {
       max-width: 800px; margin: 40px auto; background: white; padding: 20px;
       border-radius: 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);
@@ -30,7 +33,7 @@
   <h1>翻译错题集</h1>
 
   <div class="search-box">
-    <input type="text" id="searchBox" placeholder="输入关键词（标签、类型、原文、错因等）..." />
+    <input type="text" id="searchBox" placeholder="搜索原文、关键词、错误类型..." />
   </div>
 
   <div id="randomEntry" class="entry">每日一句加载中...</div>
@@ -38,7 +41,7 @@
   <div id="content">加载中...</div>
 
   <div class="chart-section">
-    <h2 style="text-align:center;">错题标签统计</h2>
+    <h2 style="text-align:center;">错误类型统计</h2>
     <canvas id="errorChart" height="200"></canvas>
   </div>
 
@@ -62,17 +65,22 @@
         div.className = 'entry';
         div.innerHTML = `
           <div class="summary" onclick="toggle(${i})">
+            ${wrapTags(entry["翻译方向"], 'tag-direction')} 
+            ${wrapTags(entry["错误类型"], 'tag-type')}
+            ${wrapTags(entry["文本类型"], 'tag-style')}
             原文：${safe(entry["原文"]).slice(0, 40)}...
           </div>
           <div class="details" id="d${i}">
             ${renderField("原文", entry["原文"])}
             ${renderField("我的翻译", entry["我的翻译"])}
-            ${renderField("修改建议", entry["修改建议"])}
-            ${renderField("错因分析", entry["错因分析"])}
-            ${renderField("表达积累", entry["表达积累"])}
-            ${renderTags("错误标签", entry["错误标签"])}
+            ${renderField("修改", entry["修改"])}
+            ${renderField("参考译文", entry["参考译文"])}
+            ${renderField("改进说明", entry["改进说明"])}
+            ${renderField("积累表达", entry["积累表达"])}
+            ${renderField("关键词", entry["关键词"])}
+            ${wrapTags("错误类型", entry["错误类型"], 'tag-type')}
+            ${wrapTags("翻译方向", entry["翻译方向"], 'tag-direction')}
             ${renderField("文本类型", entry["文本类型"])}
-            ${renderField("翻译方向", entry["翻译方向"])}
             ${renderField("日期", entry["日期"])}
           </div>
         `;
@@ -80,35 +88,36 @@
       });
     }
 
-    function toggle(index) {
-      const el = document.getElementById(`d${index}`);
-      el.style.display = el.style.display === 'block' ? 'none' : 'block';
-    }
-
     function renderField(label, value) {
       if (!value) return '';
       return `<div><span class="label">${label}：</span>${safe(value)}</div>`;
     }
 
-    function renderTags(label, value) {
-      if (!value) return '';
-      const tags = value.split(',').map(t =>
-        `<span class="tag">${safe(t.trim())}</span>`
+    function wrapTags(label, text, className) {
+      if (!text) return '';
+      const tags = text.split(',').map(t =>
+        `<span class="tag ${className}">${safe(t.trim())}</span>`
       ).join('');
       return `<div><span class="label">${label}：</span>${tags}</div>`;
+    }
+
+    function toggle(index) {
+      const el = document.getElementById(`d${index}`);
+      el.style.display = el.style.display === 'block' ? 'none' : 'block';
     }
 
     function showRandomEntry() {
       if (!allData.length) return;
       const r = allData[Math.floor(Math.random() * allData.length)];
       document.getElementById('randomEntry').innerHTML = `
-        <div class="summary">每日一句：${safe(r["原文"]).slice(0, 40)}...</div>
+        <div class="summary">每日一句 · ${wrapTags(r["翻译方向"], 'tag-direction')} 原文预览：${safe(r["原文"]).slice(0, 40)}...</div>
         <div class="details" style="display:block;">
           ${renderField("原文", r["原文"])}
           ${renderField("我的翻译", r["我的翻译"])}
-          ${renderField("修改建议", r["修改建议"])}
-          ${renderField("错因分析", r["错因分析"])}
-          ${renderField("表达积累", r["表达积累"])}
+          ${renderField("修改", r["修改"])}
+          ${renderField("参考译文", r["参考译文"])}
+          ${renderField("改进说明", r["改进说明"])}
+          ${renderField("积累表达", r["积累表达"])}
         </div>`;
     }
 
@@ -125,8 +134,8 @@
     function drawChart(data) {
       const counter = {};
       data.forEach(e => {
-        if (e["错误标签"]) {
-          e["错误标签"].split(',').forEach(t => {
+        if (e["错误类型"]) {
+          e["错误类型"].split(',').forEach(t => {
             const tag = t.trim();
             if (tag) counter[tag] = (counter[tag] || 0) + 1;
           });
